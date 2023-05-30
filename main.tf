@@ -13,7 +13,7 @@ resource "aws_iam_role" "example_role" {
 }
 
 resource "aws_s3_bucket" "example_bucket" {
-  bucket = "cloudclimbersbucket"
+  bucket = ""
 }
 
 resource "aws_lambda_function" "example_lambda" {
