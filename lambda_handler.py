@@ -20,20 +20,16 @@ class VideoDetect:
         print('Start Job Id: ' + self.startJobId)
 
     def GetTextDetectionResults(self):
-        maxResults = 100
+        maxResults = 20
         paginationToken = ''
         finished = False
-        print("1")
         while not finished:
-            print("2")
             response = self.rek.get_text_detection(
                 JobId=self.startJobId,
                 MaxResults=maxResults,
                 NextToken=paginationToken
             )
 
-            # for textDetection in response['TextDetections']:
-            #     print("Detected text: " + textDetection['DetectedText'])
 
             if response['JobStatus'] == "IN_PROGRESS":
                 continue
@@ -41,21 +37,20 @@ class VideoDetect:
                 detected_texts = []
                 for detection in response['TextDetections']:
                     detected_text = detection['TextDetection']['DetectedText']
-                    detected_texts.append(detected_text)
-                for text in detected_texts:
-                    if text not in ["Camera", "Regular Camera", "LPR Camera"]:
-                        print(text)
+                    if detected_text not in ["Camera", "Regular Camera", "LPR Camera"]:
+                        detected_texts.append(detected_text)
+                        print(detected_text)     
                 finished = True
 
 def lambda_handler(event, context):
-    roleArn = ''
-    bucket = ''
+    role = event['role']
+    bucket = event['bucket']
     video = 'test.mp4'
 
     session = boto3.Session()
     rek = session.client('rekognition')
 
-    analyzer = VideoDetect(roleArn, bucket, video, rek)
+    analyzer = VideoDetect(role, bucket, video, rek)
     analyzer.StartTextDetection()
     analyzer.GetTextDetectionResults()
 
