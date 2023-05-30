@@ -27,6 +27,12 @@ class VideoDetect:
         else:
             return False
 
+    def save_data_s3(self, detected_texts):
+        s3 = boto3.resource('s3')
+        json_data = {'license_plates': detected_texts}
+        s3.Object(self.bucket, 'output.json').put(Body=json.dumps(json_data))
+    
+
     def GetTextDetectionResults(self):
         maxResults = 100
         paginationToken = ''
@@ -38,20 +44,20 @@ class VideoDetect:
                 NextToken=paginationToken
             )
 
-            # for textDetection in response['TextDetections']:
-            #     print("Detected text: " + textDetection['DetectedText'])
-
             if response['JobStatus'] == "IN_PROGRESS":
                 continue
             else:
                 detected_texts = []
                 for detection in response['TextDetections']:
                     detected_text = detection['TextDetection']['DetectedText']
-                    detected_texts.append(detected_text)
-                for text in detected_texts:
-                    if self.validate_license_plate(text):
-                        print(text)
+                    if self.validate_license_plate(detected_text):
+                        detected_texts.append(detected_text)
+                        print(detected_text)
+
+                self.save_data_s3(detected_texts)
                 finished = True
+
+
 
 def lambda_handler(event, context):
     roleArn = event['role']
