@@ -1,6 +1,7 @@
 import boto3
 import json
 import logging
+import re
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -19,8 +20,15 @@ class VideoDetect:
         self.startJobId = response['JobId']
         print('Start Job Id: ' + self.startJobId)
 
+    def validate_license_plate(self, text):
+        pattern = r'^[A-Z]{2}\s?\d{2,3}[A-Z0-9]{1,2}$'
+        if re.match(pattern, text):
+            return True
+        else:
+            return False
+
     def GetTextDetectionResults(self):
-        maxResults = 20
+        maxResults = 100
         paginationToken = ''
         finished = False
         while not finished:
@@ -30,6 +38,8 @@ class VideoDetect:
                 NextToken=paginationToken
             )
 
+            # for textDetection in response['TextDetections']:
+            #     print("Detected text: " + textDetection['DetectedText'])
 
             if response['JobStatus'] == "IN_PROGRESS":
                 continue
@@ -37,20 +47,21 @@ class VideoDetect:
                 detected_texts = []
                 for detection in response['TextDetections']:
                     detected_text = detection['TextDetection']['DetectedText']
-                    if detected_text not in ["Camera", "Regular Camera", "LPR Camera"]:
-                        detected_texts.append(detected_text)
-                        print(detected_text)     
+                    detected_texts.append(detected_text)
+                for text in detected_texts:
+                    if self.validate_license_plate(text):
+                        print(text)
                 finished = True
 
 def lambda_handler(event, context):
-    role = event['role']
+    roleArn = event['role']
     bucket = event['bucket']
-    video = 'test.mp4'
+    video = event['file']
 
     session = boto3.Session()
     rek = session.client('rekognition')
 
-    analyzer = VideoDetect(role, bucket, video, rek)
+    analyzer = VideoDetect(roleArn, bucket, video, rek)
     analyzer.StartTextDetection()
     analyzer.GetTextDetectionResults()
 
