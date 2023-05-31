@@ -2,10 +2,15 @@ from license_plate_validator import LicensePlateValidator
 from s3_saver import S3Saver
 from datetime import timedelta
 from rekognition_service import RekognitionService
+import logging
+
 
 
 
 class VideoAnalyzer:
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     def __init__(self, role_arn, bucket, video):
         self.roleArn = role_arn
         self.bucket = bucket
@@ -16,7 +21,7 @@ class VideoAnalyzer:
         rekognition_service = RekognitionService()
         response = rekognition_service.start_text_detection(self.video)
         self.startJobId = response['JobId']
-        print('Start Job Id: ' + self.startJobId)
+        logging.info('Start Job Id: ' + self.startJobId)
 
     def process_license_plate(self, license_plate, timestamp):
         current_time = str(timedelta(milliseconds=timestamp))
@@ -41,8 +46,8 @@ class VideoAnalyzer:
                     timestamp = detection['Timestamp']
                     if license_plate_validator.validate_license_plate(detected_text):
                         self.process_license_plate(detected_text, timestamp)
-                        print(detected_text)
-                        print(timestamp)
+                        logging.info('Detected license plates: ' + detected_text)
 
                 s3_saver.save_data_s3(self.bucket, self.results)
                 finished = True
+                logging.info('Detection finished')
