@@ -7,7 +7,6 @@ class S3Saver:
         logger = logging.getLogger()
         logger.setLevel(logging.INFO)
         s3 = boto3.resource('s3')
-
         json_data = []
         for result in results:
             license_plate = result['license_plate']
@@ -21,7 +20,7 @@ class S3Saver:
                     'end_time': end_time
                 }
                 segment_list.append(segment_data)
-
+                
             result_data = {
                 'license_plate': license_plate,
                 'video_segments': segment_list
