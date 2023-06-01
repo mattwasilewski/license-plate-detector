@@ -31,6 +31,7 @@ Before deploying the application, ensure that you have the following:
    - `ROLE_ARN` - Set the value to the IAM role ARN.
 6. Save the environment variable changes in the Lambda function configuration.
 7. Open a terminal or command prompt and navigate to the project directory.
-8. Initialize Terraform by running the following command: `terraform init`
-9. Deploy the application using Terraform: `terraform apply`
-10. Once the deployment is complete, the application will be up and running, ready to process the video file and save the results in S3.
+8. Package the project into a `.zip` file named `lambda_handler.zip`
+9. Initialize Terraform by running the following command: `terraform init`
+10. Deploy the application using Terraform: `terraform apply`
+11. Once the deployment is complete, the application will be up and running, ready to process the video file and save the results in S3.
