@@ -1,6 +1,7 @@
 from license_plate_validator import LicensePlateValidator
 from s3_saver import S3Saver
 from datetime import timedelta
+from datetime import datetime
 from rekognition_service import RekognitionService
 import logging
 
@@ -15,7 +16,7 @@ class VideoAnalyzer:
         self.roleArn = role_arn
         self.bucket = bucket
         self.video = video
-        self.results = {}
+        self.results = []
 
     def start_text_detection(self):
         rekognition_service = RekognitionService()
@@ -24,11 +25,30 @@ class VideoAnalyzer:
         logging.info('Start Job Id: ' + self.startJobId)
 
     def process_license_plate(self, license_plate, timestamp):
-        current_time = str(timedelta(milliseconds=timestamp))
-        if license_plate in self.results:
-            self.results[license_plate].append(current_time)
+        current_time = datetime.fromtimestamp(timestamp / 1000.0)
+        if not self.results:
+            # Jeśli nie ma żadnych wyników, dodaj pierwszy segment
+            self.results.append({
+                'license_plate': license_plate,
+                'video_segments': [{
+                    'start_time': current_time,
+                    'end_time': current_time
+                }]
+            })
         else:
-            self.results[license_plate] = [current_time]
+            last_result = self.results[-1]
+            last_segment = last_result['video_segments'][-1]
+            end_time = last_segment['end_time']
+            time_diff = current_time - end_time
+            if time_diff <= timedelta(seconds=5):  # Ustal próg czasowy (5 sekund)
+                # Jeśli czas trwania segmentu jest wystarczająco krótki, aktualizuj czas końcowy
+                last_segment['end_time'] = current_time
+            else:
+                # Jeśli czas trwania segmentu jest długi, dodaj nowy segment
+                last_result['video_segments'].append({
+                    'start_time': current_time,
+                    'end_time': current_time
+                })
 
     def get_text_detection_results(self):
         rekognition_service = RekognitionService()
@@ -37,8 +57,10 @@ class VideoAnalyzer:
         while not finished:
             response = rekognition_service.get_text_detection_results(self.startJobId, pagination_token)
             if response['JobStatus'] == "IN_PROGRESS":
+                print(response)
                 continue
             else:
+                print(response)
                 license_plate_validator = LicensePlateValidator()
                 s3_saver = S3Saver()
                 for detection in response['TextDetections']:
@@ -47,7 +69,9 @@ class VideoAnalyzer:
                     if license_plate_validator.validate_license_plate(detected_text):
                         self.process_license_plate(detected_text, timestamp)
                         logging.info('Detected license plates: ' + detected_text)
-
-                s3_saver.save_data_s3(self.bucket, self.results)
-                finished = True
-                logging.info('Detection finished')
+                if 'NextToken' in response:
+                    paginationToken = response['NextToken']
+                else:
+                    s3_saver.save_data_s3(self.bucket, self.results)
+                    logging.info('Detection finished')
+                    finished = True

@@ -11,7 +11,7 @@ class RekognitionService:
         return response
 
     def get_text_detection_results(self, job_id, next_token=''):
-        max_results = 100
+        max_results = 25
         response = self.client.get_text_detection(
             JobId=job_id,
             MaxResults=max_results,
