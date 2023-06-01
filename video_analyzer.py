@@ -27,21 +27,23 @@ class VideoAnalyzer:
     def process_license_plate(self, license_plate, timestamp):
         current_time = datetime.fromtimestamp(timestamp / 1000.0)
         found_plate = False
+
         for result in self.results:
             if result['license_plate'] == license_plate:
                 last_segment = result['video_segments'][-1]
                 end_time = last_segment['end_time']
                 time_diff = current_time - end_time
-                if time_diff <= timedelta(seconds=5):
+                if time_diff <= timedelta(seconds=10):
                     last_segment['end_time'] = current_time
                 else:
                     result['video_segments'].append({
                         'start_time': current_time,
                         'end_time': current_time
                     })
+
                 found_plate = True
                 break
-        
+
         if not found_plate:
             self.results.append({
                 'license_plate': license_plate,
@@ -51,24 +53,24 @@ class VideoAnalyzer:
                 }]
             })
 
-    def get_text_detection_results(self):
+    def handle_successful_response(self, response):
+        license_plate_validator = LicensePlateValidator()
+        for detection in response['TextDetections']:
+            detected_text = detection['TextDetection']['DetectedText']
+            timestamp = detection['Timestamp']
+            if license_plate_validator.validate_license_plate(detected_text):
+                self.process_license_plate(detected_text, timestamp)
+                logging.info('Detected license plates: ' + detected_text)
+
+
+    def get_license_plate_results(self):
         rekognition_service = RekognitionService()
         pagination_token = ''
         finished = False
         while not finished:
             response = rekognition_service.get_text_detection_results(self.startJobId, pagination_token)
-            if response['JobStatus'] == "IN_PROGRESS":
-                continue
-            else:
-                print(response)
-                print(self.results)
-                license_plate_validator = LicensePlateValidator()
-                for detection in response['TextDetections']:
-                    detected_text = detection['TextDetection']['DetectedText']
-                    timestamp = detection['Timestamp']
-                    if license_plate_validator.validate_license_plate(detected_text):
-                        self.process_license_plate(detected_text, timestamp)
-                        logging.info('Detected license plates: ' + detected_text)
+            if response['JobStatus'] == "SUCCEEDED":
+                self.handle_successful_response(response)
                 if 'NextToken' in response:
                     pagination_token = response['NextToken']
                 else:
@@ -76,3 +78,5 @@ class VideoAnalyzer:
                     s3_saver.save_data_s3(self.bucket, self.results)
                     logging.info('Detection finished')
                     finished = True
+            else:
+                continue
