@@ -8,10 +8,9 @@ def lambda_handler(event, context):
         'bucket': bucket,
         'file': event['file']
     }
-
     analyzer = VideoAnalyzer(role_arn, bucket, video)
     analyzer.start_text_detection()
-    analyzer.get_text_detection_results()
+    analyzer.get_license_plate_results()
 
     return {
         'statusCode': 200,

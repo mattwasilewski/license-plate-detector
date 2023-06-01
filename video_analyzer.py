@@ -18,49 +18,13 @@ class VideoAnalyzer:
         self.video = video
         self.results = []
 
+
     def start_text_detection(self):
         rekognition_service = RekognitionService()
         response = rekognition_service.start_text_detection(self.video)
         self.startJobId = response['JobId']
         logging.info('Start Job Id: ' + self.startJobId)
 
-    def process_license_plate(self, license_plate, timestamp):
-        current_time = datetime.fromtimestamp(timestamp / 1000.0)
-        found_plate = False
-
-        for result in self.results:
-            if result['license_plate'] == license_plate:
-                last_segment = result['video_segments'][-1]
-                end_time = last_segment['end_time']
-                time_diff = current_time - end_time
-                if time_diff <= timedelta(seconds=10):
-                    last_segment['end_time'] = current_time
-                else:
-                    result['video_segments'].append({
-                        'start_time': current_time,
-                        'end_time': current_time
-                    })
-
-                found_plate = True
-                break
-
-        if not found_plate:
-            self.results.append({
-                'license_plate': license_plate,
-                'video_segments': [{
-                    'start_time': current_time,
-                    'end_time': current_time
-                }]
-            })
-
-    def handle_successful_response(self, response):
-        license_plate_validator = LicensePlateValidator()
-        for detection in response['TextDetections']:
-            detected_text = detection['TextDetection']['DetectedText']
-            timestamp = detection['Timestamp']
-            if license_plate_validator.validate_license_plate(detected_text):
-                self.process_license_plate(detected_text, timestamp)
-                logging.info('Detected license plates: ' + detected_text)
 
 
     def get_license_plate_results(self):
@@ -80,3 +44,47 @@ class VideoAnalyzer:
                     finished = True
             else:
                 continue
+
+
+    def handle_successful_response(self, response):
+        license_plate_validator = LicensePlateValidator()
+        for detection in response['TextDetections']:
+            detected_text = detection['TextDetection']['DetectedText']
+            timestamp = detection['Timestamp']
+            if license_plate_validator.validate_license_plate(detected_text):
+                self.process_license_plate(detected_text, timestamp)
+                logging.info('Detected license plates: ' + detected_text)
+
+
+
+    def process_license_plate(self, license_plate, timestamp):
+        current_time = datetime.fromtimestamp(timestamp / 1000.0)
+        found_plate = False
+
+        for result in self.results:
+            if result['license_plate'] == license_plate:
+                last_segment = result['video_segments'][-1]
+                end_time = last_segment['end_time']
+                time_diff = current_time - end_time
+                if time_diff <= timedelta(seconds=10):
+                    last_segment['end_time'] = current_time
+                    logging.info(f"Changed segment end time: {license_plate}")
+                else:
+                    result['video_segments'].append({
+                        'start_time': current_time,
+                        'end_time': current_time
+                    })
+                    logging.info(f"Added new segment: {license_plate}")
+
+                found_plate = True
+                break
+
+        if not found_plate:
+            self.results.append({
+                'license_plate': license_plate,
+                'video_segments': [{
+                    'start_time': current_time,
+                    'end_time': current_time
+                }]
+            })
+            logging.info(f"Added new license plate: {license_plate}")
